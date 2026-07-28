@@ -422,25 +422,29 @@
     box-shadow:0 0 0 3px var(--accent-soft);
   }
   .field textarea{ resize:vertical; min-height:68px; }
-  .photo-field{
+  .photo-buttons{
+    display:flex;
+    gap:8px;
+  }
+  .photo-choice-btn{
+    flex:1;
     border:1.5px dashed var(--border);
     border-radius:8px;
-    padding:14px;
+    padding:12px 8px;
     text-align:center;
     background:#fff;
     cursor:pointer;
-    transition:border-color .12s ease, background .12s ease;
-  }
-  .photo-field:hover{ border-color:var(--accent); background:var(--accent-soft); }
-  .photo-field input[type="file"]{ display:none; }
-  .photo-hint{
     font-family:'Inter','Noto Sans Bengali', sans-serif;
     font-size:12.5px;
+    font-weight:600;
     color:var(--ink-soft);
+    transition:border-color .12s ease, background .12s ease, color .12s ease;
   }
+  .photo-choice-btn:hover{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
   .photo-preview-wrap{
     position:relative;
     display:inline-block;
+    margin-top:10px;
   }
   .photo-preview{
     max-width:100%;
@@ -464,8 +468,8 @@
   }
   .ticket-photo{
     width:100%;
-    height:130px;
-    object-fit:cover;
+    max-height:220px;
+    object-fit:contain;
     border-radius:6px;
     margin-bottom:10px;
     display:block;
@@ -551,6 +555,80 @@
     color:var(--ink-soft);
   }
   .close-x:hover{ color:var(--ink); }
+
+  .camera-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.85);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:70;
+  }
+  .camera-overlay.open{ display:flex; }
+  .camera-box{
+    background:#000;
+    border-radius:12px;
+    overflow:hidden;
+    max-width:520px;
+    width:100%;
+    position:relative;
+  }
+  .camera-box video, .camera-box canvas, .camera-box img.camera-shot{
+    width:100%;
+    max-height:70vh;
+    display:block;
+    background:#000;
+    object-fit:contain;
+  }
+  .camera-controls{
+    display:flex;
+    gap:10px;
+    padding:14px;
+    background:#111;
+  }
+  .camera-controls button{
+    flex:1;
+    font-family:'Inter','Noto Sans Bengali', sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    padding:11px;
+    border-radius:8px;
+    cursor:pointer;
+    border:none;
+  }
+  .cam-btn-cancel{ background:#2b2b2b; color:#fff; }
+  .cam-btn-capture{ background:var(--accent); color:#fff; }
+  .cam-btn-retake{ background:#2b2b2b; color:#fff; }
+  .cam-btn-use{ background:var(--found); color:#fff; }
+  .camera-error{
+    color:#fff;
+    font-family:'Inter','Noto Sans Bengali', sans-serif;
+    font-size:13px;
+    text-align:center;
+    padding:40px 20px;
+  }
+
+  .admin-bar{
+    max-width:1040px;
+    margin:10px auto 0;
+    padding:0 20px;
+    text-align:center;
+  }
+  .admin-link{
+    background:none;
+    border:none;
+    font-family:'Inter','Noto Sans Bengali', sans-serif;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-decoration:underline;
+    cursor:pointer;
+    opacity:0.6;
+  }
+  .admin-link:hover{ opacity:1; }
+  .admin-link.active{ color:var(--found); opacity:1; font-weight:600; text-decoration:none; }
+  .delete-btn.admin-delete{ border-color:var(--lost); color:var(--lost); }
+
   .toast{
     position:fixed;
     bottom:24px;
@@ -631,6 +709,9 @@
 </div>
 <p class="note" id="statusNote" style="margin-top:10px;">Loading&hellip;</p>
 <p class="note" id="tAddress" style="margin-top:6px;">Holding 153 (Old 190), Road 5, Block J, Baridhara, Madhya Nayanagar, Vatara, Dhaka-1212</p>
+<div class="admin-bar">
+  <button type="button" class="admin-link" id="adminToggleBtn">Admin</button>
+</div>
 
 <!-- Modal -->
 <div class="overlay" id="overlay">
@@ -660,11 +741,16 @@
       </div>
       <div class="field">
         <label id="tLabelPhoto">Photo (optional)</label>
-        <div class="photo-field" id="photoField">
-          <input type="file" id="fPhoto" accept="image/*">
-          <span class="photo-hint" id="photoHintText">Tap to add a photo</span>
-          <div id="photoPreviewArea"></div>
+        <div class="photo-buttons" id="photoButtons">
+          <button type="button" class="photo-choice-btn" id="photoUploadBtn">
+            <span id="photoUploadLabel">🖼️ Choose photo</span>
+          </button>
+          <button type="button" class="photo-choice-btn" id="photoCameraBtn">
+            <span id="photoCameraLabel">📷 Take photo</span>
+          </button>
         </div>
+        <input type="file" id="fPhoto" accept="image/*" style="display:none;">
+        <div id="photoPreviewArea"></div>
       </div>
       <div class="field">
         <label id="tLabelLocation">Location (last seen / found at)</label>
@@ -683,6 +769,35 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="camera-overlay" id="adminOverlay">
+  <div class="modal" style="max-width:360px;">
+    <button class="close-x" id="adminCloseBtn">&times;</button>
+    <h2 id="adminPromptTitleEl">Admin login</h2>
+    <div class="sub" id="adminPromptDescEl">Enter the admin password to manage every post.</div>
+    <div class="field">
+      <input type="password" id="adminPasswordInput" placeholder="Password">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" id="adminCancelBtn">Cancel</button>
+      <button type="button" class="btn-submit" id="adminLoginSubmitBtn">Log in</button>
+    </div>
+  </div>
+</div>
+
+<div class="camera-overlay" id="cameraOverlay">
+  <div class="camera-box">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <img id="cameraShot" class="camera-shot" style="display:none;">
+    <div id="cameraError" class="camera-error" style="display:none;"></div>
+    <div class="camera-controls">
+      <button type="button" class="cam-btn-cancel" id="camCancelBtn">✕ <span id="camCancelLabel">Cancel</span></button>
+      <button type="button" class="cam-btn-capture" id="camCaptureBtn">📸 <span id="camCaptureLabel">Capture</span></button>
+      <button type="button" class="cam-btn-retake" id="camRetakeBtn" style="display:none;">↺ <span id="camRetakeLabel">Retake</span></button>
+      <button type="button" class="cam-btn-use" id="camUseBtn" style="display:none;">✓ <span id="camUseLabel">Use photo</span></button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -732,6 +847,36 @@ const FIREBASE_CONFIG = {
 
 const FIRESTORE_COLLECTION = 'uits_lostfound';
 const FIRESTORE_DOC = 'board';
+
+/* ============================================================
+   OPTIONAL: ADMIN MODE (delete ANY post, not just your own)
+   ------------------------------------------------------------
+   By default nobody is admin, and everyone can only delete
+   items they posted themselves.
+
+   To enable an admin login:
+     1. Pick a password.
+     2. Open this file in a browser, open DevTools console
+        (F12 → Console), and run:
+          crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourpassword'))
+            .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
+     3. Copy the printed hash into ADMIN_PASSWORD_HASH below.
+     4. Share the plain password only with whoever should moderate
+        the board — never put the plain password in this file,
+        since it's public on GitHub.
+
+   Click "Admin" at the very bottom of the page and enter the
+   password to unlock delete on every post, for that browser.
+   ============================================================ */
+const ADMIN_PASSWORD_HASH = '18df8b7cda43feeef06b99dcbc3fb9b29145397a5ef8133de569257ae296026c';
+const ADMIN_SESSION_KEY = 'uits-lostfound-admin';
+let isAdmin = false;
+
+async function sha256Hex(text){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 let db = null;
 let useFirebase = false;
 let firebaseUnsub = null;
@@ -836,6 +981,14 @@ const I18N = {
     deleteBtn: 'Delete', confirmDeleteBtn: 'Confirm?', toastDeleted: 'Notice removed', confirmDelete: 'Delete this notice? This can\'t be undone.',
     labelPhoto: 'Photo (optional)', photoHint: 'Tap to add a photo', photoTooBig: 'Image too large — try a smaller photo', photoRemove: 'Remove photo',
     emailBtn: 'Email', callBtn: 'Call', mailSubject: 'Regarding your', mailBodyIntro: 'Hi, I saw your notice on the UITS Lost & Found board about:',
+    photoUpload: '🖼️ Choose photo', photoCamera: '📷 Take photo',
+    camCancel: 'Cancel', camCapture: 'Capture', camRetake: 'Retake', camUse: 'Use photo',
+    camNoAccess: 'Could not access the camera. Check permissions, or use "Choose photo" instead.',
+    adminLabel: 'Admin', adminLogout: 'Admin ✓ (log out)',
+    adminPromptTitle: 'Admin login', adminPromptDesc: 'Enter the admin password to manage every post.',
+    adminPasswordPh: 'Password', adminLoginBtn: 'Log in', adminWrongPass: 'Incorrect password',
+    adminOnMsg: 'Admin mode on — you can delete any post', adminOffMsg: 'Admin mode off',
+    adminNotConfigured: 'Admin mode isn\'t set up for this board yet',
     toastPinned: 'Item posted to the board',
     toastResolved: 'Marked as resolved', toastReopened: 'Item reopened',
     toastSaveErr: 'Could not save — please try again',
@@ -869,6 +1022,14 @@ const I18N = {
     deleteBtn: 'মুছুন', confirmDeleteBtn: 'নিশ্চিত?', toastDeleted: 'নোটিশ মুছে ফেলা হয়েছে', confirmDelete: 'এই নোটিশটি মুছে ফেলবেন? এটা আর ফেরানো যাবে না।',
     labelPhoto: 'ছবি (ঐচ্ছিক)', photoHint: 'ছবি যোগ করতে চাপুন', photoTooBig: 'ছবিটি অনেক বড় — ছোট ছবি দিন', photoRemove: 'ছবি সরান',
     emailBtn: 'ইমেইল', callBtn: 'কল', mailSubject: 'বিষয়ে', mailBodyIntro: 'হাই, আমি UITS Lost & Found বোর্ডে আপনার নোটিশ দেখেছি:',
+    photoUpload: '🖼️ ছবি বাছাই করুন', photoCamera: '📷 ছবি তুলুন',
+    camCancel: 'বাতিল', camCapture: 'ক্যাপচার', camRetake: 'আবার তুলুন', camUse: 'এই ছবি ব্যবহার করুন',
+    camNoAccess: 'ক্যামেরা অ্যাক্সেস করা যায়নি। পারমিশন চেক করুন, অথবা "ছবি বাছাই করুন" ব্যবহার করুন।',
+    adminLabel: 'অ্যাডমিন', adminLogout: 'অ্যাডমিন ✓ (লগ আউট)',
+    adminPromptTitle: 'অ্যাডমিন লগইন', adminPromptDesc: 'সব পোস্ট ম্যানেজ করতে অ্যাডমিন পাসওয়ার্ড দিন।',
+    adminPasswordPh: 'পাসওয়ার্ড', adminLoginBtn: 'লগইন', adminWrongPass: 'ভুল পাসওয়ার্ড',
+    adminOnMsg: 'অ্যাডমিন মোড চালু — এখন যেকোনো পোস্ট মুছতে পারবেন', adminOffMsg: 'অ্যাডমিন মোড বন্ধ',
+    adminNotConfigured: 'এই বোর্ডে এখনো অ্যাডমিন মোড সেট করা হয়নি',
     toastPinned: 'জিনিসটি বোর্ডে পোস্ট হয়েছে',
     toastResolved: 'সমাধান হিসেবে চিহ্নিত হয়েছে', toastReopened: 'পুনরায় খোলা হয়েছে',
     toastSaveErr: 'সেভ করা যায়নি — আবার চেষ্টা করুন',
@@ -892,6 +1053,7 @@ function showToast(msg){
 }
 
 let currentPhotoData = null;
+let cameraStream = null;
 
 function openModal(){ overlay.classList.add('open'); }
 function closeModal(){
@@ -899,8 +1061,6 @@ function closeModal(){
   document.getElementById('itemForm').reset();
   currentPhotoData = null;
   document.getElementById('photoPreviewArea').innerHTML = '';
-  const hint = document.getElementById('photoHintText');
-  if(hint) hint.style.display = '';
 }
 
 document.getElementById('openModalBtn').addEventListener('click', openModal);
@@ -908,18 +1068,8 @@ document.getElementById('closeModalBtn').addEventListener('click', closeModal);
 document.getElementById('cancelBtn').addEventListener('click', closeModal);
 overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeModal(); });
 
-document.getElementById('photoField').addEventListener('click', (e)=>{
-  if(e.target.closest('.photo-remove')) return;
-  document.getElementById('fPhoto').click();
-});
-
-document.getElementById('fPhoto').addEventListener('change', (e)=>{
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
-  if(!file.type.startsWith('image/')){ return; }
-
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
+function compressImageFromDataUrl(srcDataUrl){
+  return new Promise((resolve)=>{
     const img = new Image();
     img.onload = ()=>{
       const maxDim = 700;
@@ -930,19 +1080,14 @@ document.getElementById('fPhoto').addEventListener('change', (e)=>{
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-      currentPhotoData = dataUrl;
-      showPhotoPreview(dataUrl);
+      resolve(canvas.toDataURL('image/jpeg', 0.6));
     };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
+    img.src = srcDataUrl;
+  });
+}
 
 function showPhotoPreview(dataUrl){
   const area = document.getElementById('photoPreviewArea');
-  const hint = document.getElementById('photoHintText');
-  if(hint) hint.style.display = 'none';
   area.innerHTML = `
     <div class="photo-preview-wrap">
       <img class="photo-preview" src="${dataUrl}">
@@ -953,10 +1098,170 @@ function showPhotoPreview(dataUrl){
     e.stopPropagation();
     currentPhotoData = null;
     area.innerHTML = '';
-    if(hint) hint.style.display = '';
     document.getElementById('fPhoto').value = '';
   });
 }
+
+// --- Upload from gallery/files ---
+document.getElementById('photoUploadBtn').addEventListener('click', ()=>{
+  document.getElementById('fPhoto').click();
+});
+
+document.getElementById('fPhoto').addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = async (ev)=>{
+    const compressed = await compressImageFromDataUrl(ev.target.result);
+    currentPhotoData = compressed;
+    showPhotoPreview(compressed);
+  };
+  reader.readAsDataURL(file);
+});
+
+// --- Live camera capture ---
+const cameraOverlay = document.getElementById('cameraOverlay');
+const cameraVideo = document.getElementById('cameraVideo');
+const cameraShot = document.getElementById('cameraShot');
+const cameraError = document.getElementById('cameraError');
+let capturedShotDataUrl = null;
+
+function resetCameraUI(){
+  cameraVideo.style.display = '';
+  cameraShot.style.display = 'none';
+  cameraError.style.display = 'none';
+  document.getElementById('camCaptureBtn').style.display = '';
+  document.getElementById('camRetakeBtn').style.display = 'none';
+  document.getElementById('camUseBtn').style.display = 'none';
+  capturedShotDataUrl = null;
+}
+
+async function openCamera(){
+  resetCameraUI();
+  cameraOverlay.classList.add('open');
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio:false });
+    cameraVideo.srcObject = cameraStream;
+  }catch(err){
+    console.error('Camera access failed:', err);
+    cameraVideo.style.display = 'none';
+    cameraError.style.display = 'block';
+    cameraError.textContent = t('camNoAccess');
+    document.getElementById('camCaptureBtn').style.display = 'none';
+  }
+}
+
+function stopCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(tr => tr.stop());
+    cameraStream = null;
+  }
+  cameraOverlay.classList.remove('open');
+}
+
+document.getElementById('photoCameraBtn').addEventListener('click', openCamera);
+document.getElementById('camCancelBtn').addEventListener('click', stopCamera);
+cameraOverlay.addEventListener('click', (e)=>{ if(e.target === cameraOverlay) stopCamera(); });
+
+document.getElementById('camCaptureBtn').addEventListener('click', ()=>{
+  const canvas = document.createElement('canvas');
+  canvas.width = cameraVideo.videoWidth || 640;
+  canvas.height = cameraVideo.videoHeight || 480;
+  canvas.getContext('2d').drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+  capturedShotDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  cameraShot.src = capturedShotDataUrl;
+  cameraVideo.style.display = 'none';
+  cameraShot.style.display = 'block';
+  document.getElementById('camCaptureBtn').style.display = 'none';
+  document.getElementById('camRetakeBtn').style.display = '';
+  document.getElementById('camUseBtn').style.display = '';
+});
+
+document.getElementById('camRetakeBtn').addEventListener('click', ()=>{
+  resetCameraUI();
+});
+
+document.getElementById('camUseBtn').addEventListener('click', async ()=>{
+  if(!capturedShotDataUrl) return;
+  const compressed = await compressImageFromDataUrl(capturedShotDataUrl);
+  currentPhotoData = compressed;
+  showPhotoPreview(compressed);
+  stopCamera();
+});
+
+// --- Admin mode ---
+const adminOverlay = document.getElementById('adminOverlay');
+
+function hasSessionStorage(){
+  try{
+    if(typeof sessionStorage === 'undefined') return false;
+    const k = '__uits_ss_test__';
+    sessionStorage.setItem(k, '1');
+    sessionStorage.removeItem(k);
+    return true;
+  }catch(err){ return false; }
+}
+
+function loadAdminSession(){
+  if(!hasSessionStorage()) return;
+  try{
+    isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+  }catch(err){ isAdmin = false; }
+}
+
+function saveAdminSession(){
+  if(!hasSessionStorage()) return;
+  try{ sessionStorage.setItem(ADMIN_SESSION_KEY, isAdmin ? 'true' : 'false'); }catch(err){}
+}
+
+function openAdminModal(){
+  document.getElementById('adminPasswordInput').value = '';
+  adminOverlay.classList.add('open');
+  document.getElementById('adminPasswordInput').focus();
+}
+function closeAdminModal(){ adminOverlay.classList.remove('open'); }
+
+document.getElementById('adminToggleBtn').addEventListener('click', ()=>{
+  if(isAdmin){
+    isAdmin = false;
+    saveAdminSession();
+    applyLanguage();
+    render();
+    showToast(t('adminOffMsg'));
+    return;
+  }
+  if(!ADMIN_PASSWORD_HASH){
+    showToast(t('adminNotConfigured'));
+    return;
+  }
+  openAdminModal();
+});
+
+document.getElementById('adminCloseBtn').addEventListener('click', closeAdminModal);
+document.getElementById('adminCancelBtn').addEventListener('click', closeAdminModal);
+adminOverlay.addEventListener('click', (e)=>{ if(e.target === adminOverlay) closeAdminModal(); });
+
+async function attemptAdminLogin(){
+  const pass = document.getElementById('adminPasswordInput').value;
+  if(!pass) return;
+  const hash = await sha256Hex(pass);
+  if(hash === ADMIN_PASSWORD_HASH){
+    isAdmin = true;
+    saveAdminSession();
+    closeAdminModal();
+    applyLanguage();
+    render();
+    showToast(t('adminOnMsg'));
+  } else {
+    showToast(t('adminWrongPass'));
+    document.getElementById('adminPasswordInput').value = '';
+    document.getElementById('adminPasswordInput').focus();
+  }
+}
+document.getElementById('adminLoginSubmitBtn').addEventListener('click', attemptAdminLogin);
+document.getElementById('adminPasswordInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); attemptAdminLogin(); }
+});
 
 
 document.getElementById('typeSeg').addEventListener('click', (e)=>{
@@ -1030,8 +1335,30 @@ function applyLanguage(){
   document.getElementById('tSubmitBtn').textContent = t('submitBtn');
   const tLabelPhoto = document.getElementById('tLabelPhoto');
   if(tLabelPhoto) tLabelPhoto.textContent = t('labelPhoto');
-  const photoHintEl = document.getElementById('photoHintText');
-  if(photoHintEl) photoHintEl.textContent = t('photoHint');
+  const photoUploadLabelEl = document.getElementById('photoUploadLabel');
+  if(photoUploadLabelEl) photoUploadLabelEl.textContent = t('photoUpload');
+  const photoCameraLabelEl = document.getElementById('photoCameraLabel');
+  if(photoCameraLabelEl) photoCameraLabelEl.textContent = t('photoCamera');
+  const camCancelLabelEl = document.getElementById('camCancelLabel');
+  if(camCancelLabelEl) camCancelLabelEl.textContent = t('camCancel');
+  const camCaptureLabelEl = document.getElementById('camCaptureLabel');
+  if(camCaptureLabelEl) camCaptureLabelEl.textContent = t('camCapture');
+  const camRetakeLabelEl = document.getElementById('camRetakeLabel');
+  if(camRetakeLabelEl) camRetakeLabelEl.textContent = t('camRetake');
+  const camUseLabelEl = document.getElementById('camUseLabel');
+  if(camUseLabelEl) camUseLabelEl.textContent = t('camUse');
+  const adminToggleBtnEl = document.getElementById('adminToggleBtn');
+  if(adminToggleBtnEl) adminToggleBtnEl.textContent = isAdmin ? t('adminLogout') : t('adminLabel');
+  const adminPromptTitleEl = document.getElementById('adminPromptTitleEl');
+  if(adminPromptTitleEl) adminPromptTitleEl.textContent = t('adminPromptTitle');
+  const adminPromptDescEl = document.getElementById('adminPromptDescEl');
+  if(adminPromptDescEl) adminPromptDescEl.textContent = t('adminPromptDesc');
+  const adminPasswordInputEl = document.getElementById('adminPasswordInput');
+  if(adminPasswordInputEl) adminPasswordInputEl.placeholder = t('adminPasswordPh');
+  const adminLoginSubmitBtnEl = document.getElementById('adminLoginSubmitBtn');
+  if(adminLoginSubmitBtnEl) adminLoginSubmitBtnEl.textContent = t('adminLoginBtn');
+  const adminCancelBtnEl = document.getElementById('adminCancelBtn');
+  if(adminCancelBtnEl) adminCancelBtnEl.textContent = t('cancelBtn');
 
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.getAttribute('data-i18n');
@@ -1212,7 +1539,7 @@ function render(){
           </div>
           <div class="ticket-actions">
             <button class="claim-btn" data-id="${it.id}">${it.claimed ? t('reopen') : t('markClaimed')}</button>
-            ${myPostedIds.includes(it.id) ? `<button class="delete-btn" data-delete-id="${it.id}" title="${t('deleteBtn')}">${t('deleteBtn')}</button>` : ''}
+            ${(myPostedIds.includes(it.id) || isAdmin) ? `<button class="delete-btn${isAdmin && !myPostedIds.includes(it.id) ? ' admin-delete' : ''}" data-delete-id="${it.id}" title="${t('deleteBtn')}">${t('deleteBtn')}</button>` : ''}
           </div>
         </div>
         ${buildContactLinks(it)}
@@ -1312,6 +1639,7 @@ document.getElementById('itemForm').addEventListener('keydown', (e)=>{
 
 (async function init(){
   applyLanguage();
+  loadAdminSession();
   await loadMyIds();
   const firebaseReady = await initFirebase();
   applyLanguage();
