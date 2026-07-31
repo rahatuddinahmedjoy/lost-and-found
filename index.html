@@ -398,8 +398,13 @@
   .contact-row{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
     justify-content:space-between;
     gap:10px;
+  }
+  .contact-row > div:first-child{
+    min-width:0;
+    flex:1 1 auto;
   }
   .contact-label{
     font-family:'Inter','Noto Sans Bengali', sans-serif;
@@ -415,6 +420,7 @@
     font-size:13.5px;
     font-weight:600;
     color:var(--ink);
+    word-break:break-word;
   }
   .claim-btn{
     font-family:'Inter','Noto Sans Bengali', sans-serif;
@@ -432,7 +438,8 @@
   .ticket-actions{
     display:flex;
     gap:6px;
-    flex:none;
+    flex-wrap:wrap;
+    justify-content:flex-end;
   }
   .delete-btn{
     font-family:'Inter','Noto Sans Bengali', sans-serif;
